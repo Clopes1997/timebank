@@ -303,16 +303,12 @@
         if (isValid(entrada2) && isValid(saida2)) {
             minutosTrabalhados += timeToMinutes(saida2) - timeToMinutes(entrada2);
             let saldoCalculado = minutosTrabalhados - jornadaMinutos + saldoInicial;
-            
-            // Nova lógica: se o saldo estiver dentro da tolerância E 
-            // o saldo inicial for positivo, mantenha o saldo inicial
-            let saldo = saldoCalculado;
-            if (Math.abs(saldoCalculado) <= toleranciaMinutos) {
-                if (saldoInicial > 0) {
-                    saldo = saldoInicial; // Mantém o saldo inicial positivo
-                } else {
-                    saldo = 0; // Comportamento normal para outros casos
-                }
+
+            let saldo;
+            if (saldoCalculado < 0 && Math.abs(saldoCalculado) <= toleranciaMinutos) {
+                saldo = 0;
+            } else {
+                saldo = saldoCalculado;
             }
 
             const saldoClass = saldo > 0 ? 'positive' : (saldo < 0 ? 'negative' : 'neutral');
