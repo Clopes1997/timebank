@@ -32,26 +32,47 @@ function App(): React.JSX.Element {
   const [resultado, setResultado] = useState<string>('');
   const [showImportSection, setShowImportSection] = useState<boolean>(false);
 
-  const parseTimeInputToMinutes = (input: string): number => {
-    const trimmedInput = input.trim().toLowerCase();
+  const formatMinutesToHHMM = (mins: number): string => {
+    const sign = mins < 0 ? '-' : '';
+    const absMins = Math.abs(mins);
+    const h = Math.floor(absMins / 60);
+    const m = absMins % 60;
+    return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
 
-    const timeMatch = trimmedInput.match(/^(\d{1,2}):(\d{2})$/);
+  const parseSaldoInicialInput = (input: string): number => {
+    const trimmedInput = input.trim().toLowerCase();
+    if (!trimmedInput) return 0;
+
+    const sign = trimmedInput.startsWith('-') ? -1 : 1;
+    const cleanInput = trimmedInput.replace(/^-/, '');
+
+    // Try to parse as HH:MM
+    const timeMatch = cleanInput.match(/^(\d{1,2}):(\d{2})$/);
     if (timeMatch) {
       const hours = parseInt(timeMatch[1]);
       const minutes = parseInt(timeMatch[2]);
-      return hours * 60 + minutes;
+      return sign * (hours * 60 + minutes);
     }
 
-    const hhMminMatch = trimmedInput.match(/^(?:(\d+)h)?(?:\s*(\d+)min)?$/);
-    if (hhMminMatch) {
+    // Try to parse as HhMmin (e.g., "1h30min", "45min")
+    const hhMminMatch = cleanInput.match(/^(?:(\d+)h)?(?:\s*(\d+)min)?$/);
+    if (hhMminMatch && (hhMminMatch[1] || hhMminMatch[2])) {
       const hours = hhMminMatch[1] ? parseInt(hhMminMatch[1]) : 0;
       const minutes = hhMminMatch[2] ? parseInt(hhMminMatch[2]) : 0;
-      return hours * 60 + minutes;
+      return sign * (hours * 60 + minutes);
     }
 
-    const rawMinutes = parseInt(trimmedInput);
-    if (!isNaN(rawMinutes)) {
-      return rawMinutes;
+    // Try to parse as a raw number
+    const numValue = parseInt(cleanInput);
+    if (!isNaN(numValue)) {
+      if (numValue >= 0 && numValue <= 23 && cleanInput.length <= 2) {
+        // Treat as hours if between 0-23 and short (e.g., "7" -> 7 hours)
+        return sign * (numValue * 60);
+      } else {
+        // Treat as minutes if > 23 or longer (e.g., "75" -> 75 minutes)
+        return sign * numValue;
+      }
     }
 
     return 0;
@@ -90,7 +111,7 @@ function App(): React.JSX.Element {
     if (savedSaldoInicial) {
       const minutes = parseInt(savedSaldoInicial) || 0;
       setSaldoInicial(minutes);
-      setSaldoInicialDisplay(minutes === 0 ? '' : formatMinutesToHhMmin(minutes));
+      setSaldoInicialDisplay(minutes === 0 ? '' : formatMinutesToHHMM(minutes));
     }
   }, []);
 
@@ -109,10 +130,26 @@ function App(): React.JSX.Element {
   };
 
   const formatTimeInputOnBlur = (value: string, field: keyof TimeInputs): void => {
-    const numValue = parseInt(value);
-    if (!isNaN(numValue) && numValue >= 0 && numValue <= 23 && value.length <= 2) {
-      updateTimeInput(field, numValue.toString().padStart(2, '0') + ':00');
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      updateTimeInput(field, '');
+      return;
     }
+
+    const numValue = parseInt(trimmedValue);
+
+    if (!isNaN(numValue)) {
+      if (numValue >= 0 && numValue <= 23 && trimmedValue.length <= 2) {
+        // Treat as hours if between 0-23 and short (e.g., "7" -> "07:00")
+        updateTimeInput(field, numValue.toString().padStart(2, '0') + ':00');
+      } else if (numValue > 23) {
+        // Treat as minutes if > 23 (e.g., "75" -> "01:15")
+        const hours = Math.floor(numValue / 60);
+        const minutes = numValue % 60;
+        updateTimeInput(field, `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+      }
+    }
+    // If it's not a number, or already in HH:MM format, leave it as is.
   };
 
   const calcular = (): void => {
@@ -136,7 +173,7 @@ function App(): React.JSX.Element {
 
       if (saldoInicial !== 0) {
         const saldoInicialClass = saldoInicial > 0 ? 'positive' : saldoInicial < 0 ? 'negative' : 'neutral';
-        msg += `<p><strong>Saldo inicial:</strong> <span class="${saldoInicialClass}">${saldoInicial >= 0 ? '+' : '-'}${formatMinutesToHhMmin(Math.abs(saldoInicial))}</span></p>`;
+        msg += `<p><strong>Saldo inicial:</strong> <span class="${saldoInicialClass}">${saldoInicial >= 0 ? '+' : '-'}${formatMinutesToHHMM(Math.abs(saldoInicial))}</span></p>`;
       }
 
       msg += `<p><strong>Saldo final:</strong> <span class="${saldoClass}">${saldoSymbol}${formatMinutesToHhMmin(Math.abs(saldo))}</span></p>`;
@@ -165,7 +202,6 @@ function App(): React.JSX.Element {
       entrada2: '',
       saida2: '',
     });
-    setImportarTexto('');
     setResultado('');
     setSaldoInicial(0);
     setSaldoInicialDisplay('');
@@ -185,13 +221,13 @@ function App(): React.JSX.Element {
             <input
               type="text"
               id="saldoInicial"
-              placeholder="HH:MM ou MM"
+              placeholder="HH:MM"
               value={saldoInicialDisplay}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSaldoInicialDisplay(e.target.value)}
               onBlur={() => {
-                const minutes = parseTimeInputToMinutes(saldoInicialDisplay);
+                const minutes = parseSaldoInicialInput(saldoInicialDisplay);
                 setSaldoInicial(minutes);
-                setSaldoInicialDisplay(minutes === 0 ? '' : formatMinutesToHhMmin(minutes));
+                setSaldoInicialDisplay(minutes === 0 ? '' : formatMinutesToHHMM(minutes));
               }}
             />
           </div>
