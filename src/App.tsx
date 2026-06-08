@@ -10,7 +10,7 @@ interface TimeInputs {
 }
 
 const JORNADA_MINUTOS = 8 * 60;
-const TOLERANCIA_MINUTOS = 10;
+const TOLERANCIA_MINUTOS = 0;
 const STORAGE_KEYS = {
   entrada1: 'entrada1',
   saida1: 'saida1',
