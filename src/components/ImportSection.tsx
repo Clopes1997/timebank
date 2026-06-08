@@ -19,9 +19,22 @@ const ImportSection: React.FC<ImportSectionProps> = ({
     setSaida2,
     setResultado,
 }) => {
+    const extrairHorarios = (texto: string): string[] => {
+        const regexHoras: RegExp = /\b(?:([01]?\d|2[0-3]):([0-5]\d)|([01]?\d|2[0-3])h\s*([0-5]?\d)m(?:\s*\d{1,2}s)?)\b/g;
+        const horas: string[] = [];
+        let match: RegExpExecArray | null;
+
+        while ((match = regexHoras.exec(texto)) !== null) {
+            const horasParte = (match[1] ?? match[3]).padStart(2, '0');
+            const minutosParte = (match[2] ?? match[4]).padStart(2, '0');
+            horas.push(`${horasParte}:${minutosParte}`);
+        }
+
+        return horas;
+    };
+
     const importarHorarios = (): void => {
-        const regexHoras: RegExp = /\b([01]?\d|2[0-3]):[0-5]\d\b/g;
-        const horas: string[] = importarTexto.match(regexHoras) || [];
+        const horas: string[] = extrairHorarios(importarTexto);
 
         if (horas.length >= 1) setEntrada1(horas[0]);
         if (horas.length >= 2) setSaida1(horas[1]);
@@ -40,7 +53,7 @@ const ImportSection: React.FC<ImportSectionProps> = ({
             <div className="form-group">
                 <textarea
                     id="importarTexto"
-                    placeholder="Cole aqui o texto bruto com horários no formato HH:MM..."
+                    placeholder="Cole aqui o texto bruto com horários..."
                     value={importarTexto}
                     onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setImportarTexto(e.target.value)}
                 ></textarea>
